@@ -39,6 +39,31 @@ function inferSpeaker(before, after, previousSpeaker) {
   return actorAtStart(after) || actorInContext(after) || actorInContext(before) || previousSpeaker || "對話";
 }
 
+function splitSpeechText(text, maximumLength = 260) {
+  const sentences = text.match(/[^。！？!?；;，,、]+[。！？!?；;，,、]*/g) || [text];
+  const chunks = [];
+  let current = "";
+
+  for (const sentence of sentences) {
+    const value = sentence.trim();
+    if (!value) continue;
+    if (current && current.length + value.length > maximumLength) {
+      chunks.push(current);
+      current = "";
+    }
+    if (value.length <= maximumLength) {
+      current += value;
+      continue;
+    }
+    for (let index = 0; index < value.length; index += maximumLength) {
+      if (current) chunks.push(current);
+      current = value.slice(index, index + maximumLength);
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks;
+}
+
 function createStorySegments(story) {
   const paragraphs = story.split(/\n\s*\n/).map((paragraph) => paragraph.replace(/\s*\n\s*/g, " ").trim()).filter(Boolean);
   const segments = [];
@@ -47,7 +72,9 @@ function createStorySegments(story) {
   function append(role, text) {
     const content = text.trim();
     if (!content) return;
-    segments.push({ role, text: content });
+    for (const chunk of splitSpeechText(content)) {
+      segments.push({ role, text: chunk });
+    }
   }
 
   for (const paragraph of paragraphs) {
