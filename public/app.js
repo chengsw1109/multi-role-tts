@@ -7,6 +7,7 @@ const browserVoice = document.querySelector("#browser-voice");
 const canSpeak = "speechSynthesis" in window;
 let availableBrowserVoices = [];
 let activeStory = null;
+let browserVoiceChosenByUser = false;
 
 function cleanRoleName(value) {
   return value.replace(/^(?:一位|那位|這位|的)/, "").trim();
@@ -81,10 +82,18 @@ function populateBrowserVoices() {
   for (const voice of availableBrowserVoices) {
     browserVoice.add(new Option(browserVoiceLabel(voice), voice.voiceURI));
   }
-  const preferred = availableBrowserVoices.find((voice) => /^zh/i.test(voice.lang));
-  browserVoice.value = availableBrowserVoices.some((voice) => voice.voiceURI === selected)
-    ? selected
-    : (preferred || availableBrowserVoices[0]).voiceURI;
+  const googleTaiwan = availableBrowserVoices.find(
+    (voice) => /google/i.test(voice.name) && /(國語|mandarin|chinese)/i.test(voice.name) && /(台灣|臺灣|taiwan)/i.test(voice.name)
+  );
+  const taiwanChinese = availableBrowserVoices.find(
+    (voice) => /^zh-(TW|Hant-TW)$/i.test(voice.lang) || /(國語|台灣|臺灣|taiwan)/i.test(voice.name)
+  );
+  const chinese = availableBrowserVoices.find((voice) => /^zh/i.test(voice.lang));
+  const currentVoice = availableBrowserVoices.find((voice) => voice.voiceURI === selected);
+  const preferred = browserVoiceChosenByUser && currentVoice
+    ? currentVoice
+    : (googleTaiwan || taiwanChinese || chinese || availableBrowserVoices[0]);
+  browserVoice.value = preferred.voiceURI;
 }
 
 function selectedBrowserVoice() {
@@ -181,6 +190,9 @@ function speakStory() {
 }
 
 voiceButton.addEventListener("click", speakStory);
+browserVoice.addEventListener("change", () => {
+  browserVoiceChosenByUser = true;
+});
 if (canSpeak) {
   window.speechSynthesis.addEventListener("voiceschanged", populateBrowserVoices);
   populateBrowserVoices();
