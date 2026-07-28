@@ -29,7 +29,7 @@ async function readJson(request) {
 }
 
 function localVoiceboxUrl(value) {
-  const url = new URL(value || "http://127.0.0.1:8000");
+  const url = new URL(value || "http://127.0.0.1:17493");
   const allowedHosts = new Set(["127.0.0.1", "localhost", "::1"]);
   if (url.protocol !== "http:" || !allowedHosts.has(url.hostname)) {
     throw new Error("Voicebox URL must point to a local HTTP service.");
