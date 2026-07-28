@@ -191,6 +191,7 @@ async function playVoiceboxNext(sequence) {
     const response = await voiceboxRequest("/api/voicebox/speech", {
       voiceboxUrl: voiceboxUrl.value.trim(),
       profileId: profile.id,
+      engine: profile.default_engine || profile.preset_engine || "qwen",
       text: segment.text
     });
     if (activeVoicebox !== sequence) return;

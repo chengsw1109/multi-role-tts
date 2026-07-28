@@ -59,24 +59,27 @@ async function listVoiceboxProfiles(request, response) {
 
 async function generateVoiceboxSpeech(request, response) {
   try {
-    const { voiceboxUrl, profileId, text } = await readJson(request);
-    if (typeof profileId !== "string" || !profileId || typeof text !== "string" || !text.trim() || text.length > 5_000) {
+    const { voiceboxUrl, profileId, text, engine } = await readJson(request);
+    if (
+      typeof profileId !== "string" || !profileId ||
+      typeof text !== "string" || !text.trim() || text.length > 5_000 ||
+      typeof engine !== "string" || !/^[a-z0-9_-]+$/i.test(engine)
+    ) {
       sendJson(response, 400, { error: "Invalid Voicebox speech request." });
       return;
     }
     const baseUrl = localVoiceboxUrl(voiceboxUrl);
-    const generation = await fetch(`${baseUrl}/generate`, {
+    const audio = await fetch(`${baseUrl}/generate/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profile_id: profileId, text: text.trim(), language: "zh", max_chunk_chars: 800 })
+      body: JSON.stringify({
+        profile_id: profileId,
+        text: text.trim(),
+        engine,
+        language: "zh",
+        max_chunk_chars: 800
+      })
     });
-    if (!generation.ok) return voiceboxError(generation, response);
-    const generationData = await generation.json();
-    if (!generationData.id) {
-      sendJson(response, 502, { error: "Voicebox did not return an audio generation id." });
-      return;
-    }
-    const audio = await fetch(`${baseUrl}/audio/${encodeURIComponent(generationData.id)}`);
     if (!audio.ok) return voiceboxError(audio, response);
     response.writeHead(200, {
       "Content-Type": audio.headers.get("content-type") || "audio/wav",
