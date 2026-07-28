@@ -40,6 +40,9 @@
             <label>語速
               <input class="speed" type="number" min="0.25" max="4" step="0.05" value="1" />
             </label>
+            <label class="browser-voice-label">瀏覽器語音
+              <select class="browser-voice" aria-label="選擇免費試聽語音"></select>
+            </label>
             <button class="icon-button remove" type="button" aria-label="刪除這句台詞">×</button>
           </div>
           <label class="dialogue-label">台詞
@@ -50,6 +53,7 @@
             <div class="audio-actions">
               <audio class="player" controls hidden></audio>
               <a class="download" hidden>下載 MP3</a>
+              <button class="button preview" type="button">免費試聽</button>
               <button class="button generate-one" type="button">產生語音</button>
             </div>
           </div>
@@ -59,4 +63,3 @@
     <script type="module" src="/app.js"></script>
   </body>
 </html>
-

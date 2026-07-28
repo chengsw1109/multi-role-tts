@@ -2,6 +2,9 @@ const lines = document.querySelector("#lines");
 const template = document.querySelector("#line-template");
 const addLineButton = document.querySelector("#add-line");
 const generateAllButton = document.querySelector("#generate-all");
+const canPreview = "speechSynthesis" in window;
+let availableBrowserVoices = [];
+let activePreview = null;
 
 const initialLines = [
   { role: "旁白", voice: "alloy", text: "雨後的城市，空氣裡帶著一點清新的味道。" },
@@ -13,6 +16,87 @@ function safeFilename(value) {
   return (value || "speech").replace(/[\\/:*?"<>|]/g, "_").slice(0, 40);
 }
 
+function browserVoiceLabel(voice) {
+  return `${voice.name} (${voice.lang})${voice.localService ? " · 本機" : ""}`;
+}
+
+function populateBrowserVoiceOptions(scope = document) {
+  if (!canPreview) return;
+  availableBrowserVoices = window.speechSynthesis.getVoices();
+  for (const select of scope.querySelectorAll(".browser-voice")) {
+    const selected = select.value;
+    select.replaceChildren();
+    if (!availableBrowserVoices.length) {
+      select.add(new Option("正在載入本機語音…", ""));
+      select.disabled = true;
+      continue;
+    }
+
+    select.disabled = false;
+    for (const voice of availableBrowserVoices) {
+      select.add(new Option(browserVoiceLabel(voice), voice.voiceURI));
+    }
+    const preferred = availableBrowserVoices.find((voice) => /^zh/i.test(voice.lang));
+    select.value = availableBrowserVoices.some((voice) => voice.voiceURI === selected)
+      ? selected
+      : (preferred || availableBrowserVoices[0]).voiceURI;
+  }
+}
+
+function stopPreview(message = "已停止免費試聽。") {
+  if (!activePreview) return;
+  const { card, button, utterance } = activePreview;
+  utterance.onend = null;
+  utterance.onerror = null;
+  window.speechSynthesis.cancel();
+  button.textContent = "免費試聽";
+  if (card.isConnected) setStatus(card, message);
+  activePreview = null;
+}
+
+function preview(card) {
+  const text = card.querySelector(".text").value.trim();
+  const button = card.querySelector(".preview");
+  if (!canPreview) {
+    setStatus(card, "此瀏覽器不支援免費試聽。", true);
+    return;
+  }
+  if (!text) {
+    setStatus(card, "請先輸入台詞。", true);
+    return;
+  }
+  if (activePreview?.card === card) {
+    stopPreview();
+    return;
+  }
+
+  stopPreview();
+  const selectedVoice = availableBrowserVoices.find(
+    (voice) => voice.voiceURI === card.querySelector(".browser-voice").value
+  );
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.voice = selectedVoice || null;
+  utterance.lang = selectedVoice?.lang || "zh-TW";
+  utterance.rate = Number(card.querySelector(".speed").value) || 1;
+  utterance.onend = () => {
+    if (activePreview?.utterance !== utterance) return;
+    button.textContent = "免費試聽";
+    setStatus(card, "免費試聽完成");
+    activePreview = null;
+  };
+  utterance.onerror = () => {
+    if (activePreview?.utterance !== utterance) return;
+    button.textContent = "免費試聽";
+    setStatus(card, "免費試聽失敗，請改選另一個本機語音。", true);
+    activePreview = null;
+  };
+
+  activePreview = { card, button, utterance };
+  button.textContent = "停止試聽";
+  setStatus(card, "正在免費試聽…");
+  window.speechSynthesis.speak(utterance);
+}
+
 function addLine(data = {}) {
   const card = template.content.firstElementChild.cloneNode(true);
   card.querySelector(".role").value = data.role || "角色";
@@ -22,10 +106,13 @@ function addLine(data = {}) {
   card.querySelector(".remove").addEventListener("click", () => {
     const audio = card.querySelector(".player");
     if (audio.src.startsWith("blob:")) URL.revokeObjectURL(audio.src);
+    if (activePreview?.card === card) stopPreview("已停止免費試聽。");
     card.remove();
   });
+  card.querySelector(".preview").addEventListener("click", () => preview(card));
   card.querySelector(".generate-one").addEventListener("click", () => generate(card));
   lines.append(card);
+  populateBrowserVoiceOptions(card);
   return card;
 }
 
@@ -86,4 +173,7 @@ generateAllButton.addEventListener("click", async () => {
 });
 
 initialLines.forEach(addLine);
-
+if (canPreview) {
+  window.speechSynthesis.addEventListener("voiceschanged", () => populateBrowserVoiceOptions());
+  populateBrowserVoiceOptions();
+}

@@ -21,7 +21,7 @@ h1 { margin: 0; font-size: clamp(2.35rem, 6vw, 4.5rem); letter-spacing: -.055em;
 .secondary { background: #22314c; color: #dce9ff; }
 .lines { display: grid; gap: 14px; }
 .line-card { border: 1px solid #2a3b5a; border-radius: 16px; background: rgba(21, 34, 57, .9); padding: 20px; box-shadow: 0 18px 45px rgba(0, 0, 0, .13); }
-.line-head { display: grid; grid-template-columns: minmax(120px, 1fr) 130px 100px 32px; gap: 12px; align-items: end; }
+.line-head { display: grid; grid-template-columns: minmax(120px, 1fr) 130px 100px minmax(160px, 210px) 32px; gap: 12px; align-items: end; }
 label { color: #aebbd1; display: grid; font-size: .8rem; font-weight: 700; gap: 7px; }
 input, select, textarea { border: 1px solid #405372; border-radius: 8px; background: #101d32; color: #eff5ff; padding: 9px 10px; outline: none; }
 input:focus, select:focus, textarea:focus { border-color: #80b6ff; box-shadow: 0 0 0 3px #80b6ff24; }
@@ -38,7 +38,7 @@ audio { height: 34px; max-width: 260px; }
   .shell { width: min(100% - 24px, 980px); padding: 48px 0; }
   .line-head { grid-template-columns: 1fr 1fr 32px; }
   .line-head label:first-child { grid-column: 1 / -1; }
+  .browser-voice-label { grid-column: 1 / -1; }
   .toolbar { align-items: stretch; flex-direction: column-reverse; }
   .line-card { padding: 16px; }
 }
-
