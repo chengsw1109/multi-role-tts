@@ -3,77 +3,45 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>多角色配音室</title>
+    <title>故事語音</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <main class="shell">
       <header class="hero">
-        <p class="eyebrow">MULTI-ROLE TTS</p>
-        <h1>多角色配音室</h1>
-        <p>貼上完整故事，自動切出旁白與引號對話；再微調角色與聲音即可試聽或產生 MP3。</p>
+        <p class="eyebrow">BROWSER STORY VOICE</p>
+        <h1>故事語音</h1>
+        <p>貼上完整故事，免費使用電腦內建語音朗讀。系統會自動區分旁白與引號中的對話。</p>
       </header>
 
       <section class="story-import" aria-labelledby="story-import-title">
         <div>
           <p class="section-kicker">整篇故事</p>
-          <h2 id="story-import-title">貼上故事，自動建立配音段落</h2>
-          <p>系統會把敘述設為「旁白」、把「」中的內容設為對話，並依前後文嘗試辨識說話者。建立後仍可逐段修改。</p>
+          <h2 id="story-import-title">貼上故事，直接免費朗讀</h2>
+          <p>旁白和「」中的對話會在背景自動分類依序朗讀，不會顯示或要求你設定各角色。</p>
         </div>
         <label class="story-label">故事內容
           <textarea id="story-input" rows="10" placeholder="將整篇故事貼在這裡，例如：&#10;「你好。」小安說。&#10;&#10;小安走進房間，看見窗外正下著雨。"></textarea>
         </label>
+        <div class="voice-settings" aria-label="語音設定">
+          <label>聲音
+            <select id="voice-mode">
+              <option value="classified">自動分類朗讀</option>
+              <option value="single">統一使用同一聲音</option>
+            </select>
+          </label>
+          <label>語速
+            <input id="story-speed" type="number" min="0.25" max="4" step="0.05" value="1" />
+          </label>
+          <label class="browser-voice-label">瀏覽器語音
+            <select id="browser-voice" aria-label="選擇瀏覽器內建語音"></select>
+          </label>
+        </div>
         <div class="story-actions">
-          <button id="analyze-story" class="button primary" type="button">分析故事並建立段落</button>
-          <span id="story-status" class="story-status">不會呼叫 API；辨識結果可手動調整。</span>
+          <button id="story-voice" class="button primary" type="button">語音</button>
+          <span id="story-status" class="story-status">完全免費，不會呼叫 API，也不會建立音檔。</span>
         </div>
       </section>
-
-      <section class="toolbar" aria-label="操作工具列">
-        <button id="add-line" class="button secondary" type="button">＋ 新增台詞</button>
-        <button id="generate-all" class="button primary" type="button">產生全部語音</button>
-      </section>
-
-      <section id="lines" class="lines" aria-live="polite"></section>
-
-      <template id="line-template">
-        <article class="line-card">
-          <div class="line-head">
-            <label>角色
-              <input class="role" maxlength="32" placeholder="例如：旁白" />
-            </label>
-            <label>聲音
-              <select class="voice">
-                <option value="alloy">Alloy</option>
-                <option value="echo">Echo</option>
-                <option value="fable">Fable</option>
-                <option value="onyx">Onyx</option>
-                <option value="nova">Nova</option>
-                <option value="shimmer">Shimmer</option>
-              </select>
-            </label>
-            <label>語速
-              <input class="speed" type="number" min="0.25" max="4" step="0.05" value="1" />
-            </label>
-            <label class="browser-voice-label">瀏覽器語音
-              <select class="browser-voice" aria-label="選擇免費試聽語音"></select>
-            </label>
-            <button class="icon-button remove" type="button" aria-label="刪除這句台詞">×</button>
-          </div>
-          <label class="dialogue-label">台詞
-            <textarea class="text" maxlength="4096" rows="4" placeholder="輸入要朗讀的文字…"></textarea>
-          </label>
-          <div class="line-footer">
-            <span class="status">尚未產生</span>
-            <div class="audio-actions">
-              <audio class="player" controls hidden></audio>
-              <a class="download" hidden>下載 MP3</a>
-              <button class="button preview" type="button">免費試聽</button>
-              <button class="button generate-one" type="button">產生語音</button>
-            </div>
-          </div>
-        </article>
-      </template>
     </main>
     <script type="module" src="/app.js"></script>
   </body>

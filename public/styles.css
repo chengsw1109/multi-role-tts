@@ -13,42 +13,26 @@ button, input, select, textarea { font: inherit; }
 .eyebrow { margin: 0 0 10px; color: #83b7ff; font-size: .78rem; font-weight: 800; letter-spacing: .16em; }
 h1 { margin: 0; font-size: clamp(2.35rem, 6vw, 4.5rem); letter-spacing: -.055em; line-height: 1; }
 .hero > p:last-child { color: #b6c2d9; font-size: 1.05rem; line-height: 1.7; }
-.story-import { display: grid; gap: 16px; margin-bottom: 30px; border: 1px solid #315381; border-radius: 16px; padding: 22px; background: linear-gradient(135deg, #182d4b, #152239); }
+.story-import { display: grid; gap: 16px; border: 1px solid #315381; border-radius: 16px; padding: 22px; background: linear-gradient(135deg, #182d4b, #152239); }
 .section-kicker { margin: 0 0 7px; color: #83b7ff; font-size: .75rem; font-weight: 800; letter-spacing: .12em; }
 h2 { margin: 0; font-size: 1.3rem; letter-spacing: -.025em; }
 .story-import p:not(.section-kicker) { margin: 8px 0 0; color: #b6c2d9; line-height: 1.55; }
 .story-label textarea { min-height: 180px; }
+.voice-settings { display: grid; grid-template-columns: minmax(180px, 1fr) 120px minmax(220px, 1.5fr); gap: 12px; }
 .story-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .story-status { color: #aebbd1; font-size: .86rem; }
 .story-status.error { color: #ffabb3; }
-.toolbar { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
 .button { border: 0; border-radius: 10px; cursor: pointer; font-weight: 750; padding: 11px 16px; transition: transform .15s, opacity .15s; }
 .button:hover:not(:disabled) { transform: translateY(-1px); }
 .button:disabled { cursor: wait; opacity: .55; }
 .primary { background: #80b6ff; color: #10213e; }
-.secondary { background: #22314c; color: #dce9ff; }
-.lines { display: grid; gap: 14px; }
-.line-card { border: 1px solid #2a3b5a; border-radius: 16px; background: rgba(21, 34, 57, .9); padding: 20px; box-shadow: 0 18px 45px rgba(0, 0, 0, .13); }
-.line-head { display: grid; grid-template-columns: minmax(120px, 1fr) 130px 100px minmax(160px, 210px) 32px; gap: 12px; align-items: end; }
 label { color: #aebbd1; display: grid; font-size: .8rem; font-weight: 700; gap: 7px; }
 input, select, textarea { border: 1px solid #405372; border-radius: 8px; background: #101d32; color: #eff5ff; padding: 9px 10px; outline: none; }
 input:focus, select:focus, textarea:focus { border-color: #80b6ff; box-shadow: 0 0 0 3px #80b6ff24; }
 textarea { min-height: 100px; resize: vertical; line-height: 1.55; }
-.dialogue-label { margin-top: 16px; }
-.icon-button { background: transparent; border: 0; color: #98a8c0; cursor: pointer; font-size: 1.6rem; line-height: 1; padding: 0 4px 8px; }
-.line-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 15px; }
-.status { color: #9fb0ca; font-size: .86rem; }
-.status.error { color: #ffabb3; }
-.audio-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
-audio { height: 34px; max-width: 260px; }
-.download { color: #9cc7ff; font-size: .85rem; font-weight: 700; }
 @media (max-width: 620px) {
   .shell { width: min(100% - 24px, 980px); padding: 48px 0; }
-  .line-head { grid-template-columns: 1fr 1fr 32px; }
-  .line-head label:first-child { grid-column: 1 / -1; }
-  .browser-voice-label { grid-column: 1 / -1; }
-  .toolbar { align-items: stretch; flex-direction: column-reverse; }
   .story-import { padding: 17px; }
+  .voice-settings { grid-template-columns: 1fr; }
   .story-actions { align-items: stretch; flex-direction: column; }
-  .line-card { padding: 16px; }
 }
