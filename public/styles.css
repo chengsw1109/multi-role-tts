@@ -18,7 +18,8 @@ h1 { margin: 0; font-size: clamp(2.35rem, 6vw, 4.5rem); letter-spacing: -.055em;
 h2 { margin: 0; font-size: 1.3rem; letter-spacing: -.025em; }
 .story-import p:not(.section-kicker) { margin: 8px 0 0; color: #b6c2d9; line-height: 1.55; }
 .story-label textarea { min-height: 180px; }
-.voice-settings { display: grid; grid-template-columns: minmax(180px, 1fr) 120px minmax(220px, 1.5fr); gap: 12px; }
+.voice-settings { display: grid; grid-template-columns: minmax(170px, 1fr) minmax(180px, 1fr) 120px minmax(220px, 1.5fr); gap: 12px; }
+.voicebox-url { max-width: 420px; }
 .story-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .story-status { color: #aebbd1; font-size: .86rem; }
 .story-status.error { color: #ffabb3; }

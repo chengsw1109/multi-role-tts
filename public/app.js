@@ -4,10 +4,16 @@ const voiceButton = document.querySelector("#story-voice");
 const voiceMode = document.querySelector("#voice-mode");
 const speedInput = document.querySelector("#story-speed");
 const browserVoice = document.querySelector("#browser-voice");
+const speechEngine = document.querySelector("#speech-engine");
+const browserVoiceSetting = document.querySelector("#browser-voice-setting");
+const voiceboxUrlSetting = document.querySelector("#voicebox-url-setting");
+const voiceboxUrl = document.querySelector("#voicebox-url");
 const canSpeak = "speechSynthesis" in window;
 let availableBrowserVoices = [];
 let activeStory = null;
+let activeVoicebox = null;
 let browserVoiceChosenByUser = false;
+const voiceboxPlayer = new Audio();
 
 function cleanRoleName(value) {
   return value.replace(/^(?:一位|那位|這位|的)/, "").trim();
@@ -110,6 +116,137 @@ function roleVoice(role, primaryVoice, assignments) {
   return candidate;
 }
 
+function setEngineSettings() {
+  const usingVoicebox = speechEngine.value === "voicebox";
+  browserVoiceSetting.hidden = usingVoicebox;
+  voiceboxUrlSetting.hidden = !usingVoicebox;
+}
+
+function showError(message) {
+  storyStatus.textContent = message;
+  storyStatus.classList.add("error");
+}
+
+function normalizedProfileName(profile) {
+  return String(profile.name || "").trim().toLocaleLowerCase();
+}
+
+function voiceboxProfileForRole(sequence, role) {
+  const exact = sequence.profiles.find((profile) => normalizedProfileName(profile) === role.toLocaleLowerCase());
+  const narrator = sequence.profiles.find((profile) => /^(旁白|narrator|default|預設)$/i.test(String(profile.name || "")));
+  if (voiceMode.value === "single" || role === "旁白") return narrator || exact || sequence.profiles[0];
+  if (exact) return exact;
+  if (sequence.assignments.has(role)) return sequence.assignments.get(role);
+  const candidates = sequence.profiles.filter((profile) => profile.id !== narrator?.id);
+  const profile = candidates[sequence.assignments.size % candidates.length] || narrator || sequence.profiles[0];
+  sequence.assignments.set(role, profile);
+  return profile;
+}
+
+async function voiceboxRequest(path, body) {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error || "Voicebox request failed.");
+  }
+  return response;
+}
+
+function finishVoicebox(message) {
+  if (activeVoicebox?.objectUrl) URL.revokeObjectURL(activeVoicebox.objectUrl);
+  activeVoicebox = null;
+  voiceButton.textContent = "語音";
+  storyStatus.textContent = message;
+  storyStatus.classList.remove("error");
+}
+
+function stopVoicebox(message = "已停止語音。") {
+  if (!activeVoicebox) return;
+  const sequence = activeVoicebox;
+  activeVoicebox = null;
+  voiceboxPlayer.pause();
+  voiceboxPlayer.removeAttribute("src");
+  voiceboxPlayer.load();
+  if (sequence.objectUrl) URL.revokeObjectURL(sequence.objectUrl);
+  voiceButton.textContent = "語音";
+  storyStatus.textContent = message;
+  storyStatus.classList.remove("error");
+}
+
+async function playVoiceboxNext(sequence) {
+  if (activeVoicebox !== sequence) return;
+  if (sequence.index >= sequence.segments.length) {
+    finishVoicebox("Voicebox 多人語音朗讀完成。");
+    return;
+  }
+
+  const segment = sequence.segments[sequence.index];
+  const profile = voiceboxProfileForRole(sequence, segment.role);
+  storyStatus.textContent = `正在產生：${segment.role}（${sequence.index + 1} / ${sequence.segments.length}）`;
+  try {
+    const response = await voiceboxRequest("/api/voicebox/speech", {
+      voiceboxUrl: voiceboxUrl.value.trim(),
+      profileId: profile.id,
+      text: segment.text
+    });
+    if (activeVoicebox !== sequence) return;
+    if (sequence.objectUrl) URL.revokeObjectURL(sequence.objectUrl);
+    sequence.objectUrl = URL.createObjectURL(await response.blob());
+    voiceboxPlayer.src = sequence.objectUrl;
+    voiceboxPlayer.playbackRate = sequence.speed;
+    voiceboxPlayer.onended = () => {
+      if (activeVoicebox !== sequence) return;
+      sequence.index += 1;
+      playVoiceboxNext(sequence);
+    };
+    voiceboxPlayer.onerror = () => {
+      if (activeVoicebox === sequence) {
+        stopVoicebox("Voicebox 音訊播放失敗，請檢查本機語音設定檔。");
+        storyStatus.classList.add("error");
+      }
+    };
+    await voiceboxPlayer.play();
+  } catch (error) {
+    if (activeVoicebox === sequence) {
+      stopVoicebox(error.message || "Voicebox 語音產生失敗。");
+      storyStatus.classList.add("error");
+    }
+  }
+}
+
+async function speakVoiceboxStory() {
+  const story = storyInput.value.trim();
+  if (!story) {
+    showError("請先貼上故事內容。");
+    return;
+  }
+  const speed = Number(speedInput.value);
+  if (!Number.isFinite(speed) || speed < 0.25 || speed > 4) {
+    showError("語速必須介於 0.25 和 4 之間。");
+    return;
+  }
+  voiceButton.disabled = true;
+  storyStatus.textContent = "正在連線到本機 Voicebox…";
+  storyStatus.classList.remove("error");
+  try {
+    const response = await voiceboxRequest("/api/voicebox/profiles", { voiceboxUrl: voiceboxUrl.value.trim() });
+    const { profiles = [] } = await response.json();
+    if (!profiles.length) throw new Error("Voicebox 找不到語音設定檔。請先建立旁白或角色聲音。" );
+    const sequence = { segments: createStorySegments(story), profiles, index: 0, assignments: new Map(), objectUrl: "", speed };
+    activeVoicebox = sequence;
+    voiceButton.textContent = "停止語音";
+    await playVoiceboxNext(sequence);
+  } catch (error) {
+    showError(error.message || "無法連線到本機 Voicebox。");
+  } finally {
+    voiceButton.disabled = false;
+  }
+}
+
 function finishStory(message) {
   activeStory = null;
   voiceButton.textContent = "語音";
@@ -154,6 +291,16 @@ function speakNext(sequence) {
 }
 
 function speakStory() {
+  if (speechEngine.value === "voicebox") {
+    if (activeVoicebox) {
+      stopVoicebox();
+      return;
+    }
+    if (activeStory) stopStory();
+    speakVoiceboxStory();
+    return;
+  }
+  if (activeVoicebox) stopVoicebox();
   if (!canSpeak) {
     storyStatus.textContent = "此瀏覽器不支援內建語音。";
     storyStatus.classList.add("error");
@@ -190,6 +337,11 @@ function speakStory() {
 }
 
 voiceButton.addEventListener("click", speakStory);
+speechEngine.addEventListener("change", () => {
+  if (activeStory) stopStory();
+  if (activeVoicebox) stopVoicebox();
+  setEngineSettings();
+});
 browserVoice.addEventListener("change", () => {
   browserVoiceChosenByUser = true;
 });
@@ -200,3 +352,4 @@ if (canSpeak) {
   browserVoice.add(new Option("此瀏覽器不支援內建語音", ""));
   browserVoice.disabled = true;
 }
+setEngineSettings();

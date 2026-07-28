@@ -24,6 +24,12 @@
           <textarea id="story-input" rows="10" placeholder="將整篇故事貼在這裡，例如：&#10;「你好。」小安說。&#10;&#10;小安走進房間，看見窗外正下著雨。"></textarea>
         </label>
         <div class="voice-settings" aria-label="語音設定">
+          <label>語音引擎
+            <select id="speech-engine">
+              <option value="browser">瀏覽器免費試聽</option>
+              <option value="voicebox">Voicebox 本機多人語音</option>
+            </select>
+          </label>
           <label>聲音
             <select id="voice-mode">
               <option value="classified">自動分類朗讀</option>
@@ -33,10 +39,13 @@
           <label>語速
             <input id="story-speed" type="number" min="0.25" max="4" step="0.05" value="1" />
           </label>
-          <label class="browser-voice-label">瀏覽器語音
+          <label id="browser-voice-setting" class="browser-voice-label">瀏覽器語音
             <select id="browser-voice" aria-label="選擇瀏覽器內建語音"></select>
           </label>
         </div>
+        <label id="voicebox-url-setting" class="voicebox-url" hidden>Voicebox 本機網址
+          <input id="voicebox-url" type="url" value="http://127.0.0.1:8000" spellcheck="false" />
+        </label>
         <div class="story-actions">
           <button id="story-voice" class="button primary" type="button">語音</button>
           <span id="story-status" class="story-status">完全免費，不會呼叫 API，也不會建立音檔。</span>
