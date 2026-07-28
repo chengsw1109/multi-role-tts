@@ -2,9 +2,13 @@ const lines = document.querySelector("#lines");
 const template = document.querySelector("#line-template");
 const addLineButton = document.querySelector("#add-line");
 const generateAllButton = document.querySelector("#generate-all");
+const storyInput = document.querySelector("#story-input");
+const analyzeStoryButton = document.querySelector("#analyze-story");
+const storyStatus = document.querySelector("#story-status");
 const canPreview = "speechSynthesis" in window;
 let availableBrowserVoices = [];
 let activePreview = null;
+const roleVoices = ["nova", "onyx", "shimmer", "echo", "fable"];
 
 const initialLines = [
   { role: "旁白", voice: "alloy", text: "雨後的城市，空氣裡帶著一點清新的味道。" },
@@ -14,6 +18,93 @@ const initialLines = [
 
 function safeFilename(value) {
   return (value || "speech").replace(/[\\/:*?"<>|]/g, "_").slice(0, 40);
+}
+
+function cleanRoleName(value) {
+  return value.replace(/^(?:一位|那位|這位|的)/, "").trim();
+}
+
+function actorAtStart(context) {
+  const match = context.match(
+    /^\s*([\u4e00-\u9fff]{2,5}?)(?=(?:邊|站|指|看|回|對|低|大|笑|慢|喊|說|問|答|叫|道|叮嚀|默念|表示|正|降|抬|皺|露|在))/
+  );
+  return match ? cleanRoleName(match[1]) : "";
+}
+
+function actorInContext(context) {
+  const pattern = /([\u4e00-\u9fff]{2,5}?)(?=(?:邊|站|指|看|回頭|回|對|低頭|大喊|大罵|回嗆|叮嚀|默念|說|喊|問|答|叫|道|表示|笑))/g;
+  const nonNames = new Set(["笑著", "邊走", "回頭", "看著", "站在", "指著", "低頭", "大喊", "大罵", "回嗆", "叮嚀", "默念", "說著"]);
+  const matches = [...context.matchAll(pattern)]
+    .map((match) => cleanRoleName(match[1]))
+    .filter((candidate) => !nonNames.has(candidate));
+  return matches.at(-1) || "";
+}
+
+function inferSpeaker(before, after, previousSpeaker) {
+  return actorAtStart(after) || actorInContext(after) || actorInContext(before) || previousSpeaker || "對話";
+}
+
+function createStorySegments(story) {
+  const paragraphs = story.split(/\n\s*\n/).map((paragraph) => paragraph.replace(/\s*\n\s*/g, " ").trim()).filter(Boolean);
+  const segments = [];
+  let previousSpeaker = "";
+  const voiceByRole = new Map([["旁白", "alloy"]]);
+
+  function voiceFor(role) {
+    if (!voiceByRole.has(role)) {
+      voiceByRole.set(role, roleVoices[(voiceByRole.size - 1) % roleVoices.length]);
+    }
+    return voiceByRole.get(role);
+  }
+
+  function append(role, text) {
+    const content = text.trim();
+    if (!content) return;
+    segments.push({ role, voice: voiceFor(role), text: content });
+  }
+
+  for (const paragraph of paragraphs) {
+    const quotePattern = /「([^」]+)」/g;
+    let quote;
+    let cursor = 0;
+    while ((quote = quotePattern.exec(paragraph))) {
+      append("旁白", paragraph.slice(cursor, quote.index));
+      const before = paragraph.slice(Math.max(0, cursor - 100), quote.index);
+      const after = paragraph.slice(quote.index + quote[0].length, quote.index + quote[0].length + 140);
+      const role = inferSpeaker(before, after, previousSpeaker);
+      append(role, quote[1]);
+      if (role !== "對話") previousSpeaker = role;
+      cursor = quote.index + quote[0].length;
+    }
+    append("旁白", paragraph.slice(cursor));
+  }
+
+  return segments;
+}
+
+function analyzeStory() {
+  const story = storyInput.value.trim();
+  if (!story) {
+    storyStatus.textContent = "請先貼上故事內容。";
+    storyStatus.classList.add("error");
+    return;
+  }
+
+  const segments = createStorySegments(story);
+  if (!segments.length) {
+    storyStatus.textContent = "找不到可建立的段落，請確認故事內容。";
+    storyStatus.classList.add("error");
+    return;
+  }
+
+  stopPreview("已停止免費試聽。");
+  for (const player of lines.querySelectorAll(".player")) {
+    if (player.src.startsWith("blob:")) URL.revokeObjectURL(player.src);
+  }
+  lines.replaceChildren();
+  segments.forEach(addLine);
+  storyStatus.textContent = `已建立 ${segments.length} 個段落。請檢查對話角色，再免費試聽或產生 MP3。`;
+  storyStatus.classList.remove("error");
 }
 
 function browserVoiceLabel(voice) {
@@ -165,6 +256,7 @@ async function generate(card) {
 }
 
 addLineButton.addEventListener("click", () => addLine());
+analyzeStoryButton.addEventListener("click", analyzeStory);
 generateAllButton.addEventListener("click", async () => {
   const cards = [...lines.querySelectorAll(".line-card")];
   generateAllButton.disabled = true;
