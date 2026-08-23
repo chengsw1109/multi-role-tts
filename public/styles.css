@@ -24,6 +24,9 @@ h2 { margin: 0; font-size: 1.3rem; letter-spacing: -.025em; }
 .browser-voice-label { grid-column: 1 / -1; }
 .voicebox-url { max-width: none; width: 100%; }
 .voicebox-url[hidden] { display: none !important; }
+.natural-toggle .toggle-row { display: flex; align-items: center; gap: 9px; }
+.natural-toggle input { width: 16px; height: 16px; flex: none; accent-color: #80b6ff; padding: 0; }
+.toggle-hint { color: #8fa0bd; font-size: .78rem; font-weight: 500; line-height: 1.45; }
 .story-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .story-status { color: #aebbd1; font-size: .86rem; }
 .story-status.error { color: #ffabb3; }
@@ -39,5 +42,5 @@ textarea { min-height: 100px; resize: vertical; line-height: 1.55; }
   .shell { width: min(100% - 24px, 980px); padding: 48px 0; }
   .story-import { padding: 17px; }
   .voice-settings { grid-template-columns: 1fr; }
-  .story-actions { align-items: stretch; flex-direction: column; }
+.story-actions { align-items: stretch; flex-direction: column; }
 }

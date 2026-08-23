@@ -1,3 +1,5 @@
+import { normalizeForSpeech, pauseAfter, splitSpeechText, toneForSegment } from "/prosody.js";
+
 const storyInput = document.querySelector("#story-input");
 const storyStatus = document.querySelector("#story-status");
 const voiceButton = document.querySelector("#story-voice");
@@ -8,6 +10,7 @@ const speechEngine = document.querySelector("#speech-engine");
 const browserVoiceSetting = document.querySelector("#browser-voice-setting");
 const voiceboxUrlSetting = document.querySelector("#voicebox-url-setting");
 const voiceboxUrl = document.querySelector("#voicebox-url");
+const naturalProsody = document.querySelector("#natural-prosody");
 const canSpeak = "speechSynthesis" in window;
 let availableBrowserVoices = [];
 let activeStory = null;
@@ -39,41 +42,27 @@ function inferSpeaker(before, after, previousSpeaker) {
   return actorAtStart(after) || actorInContext(after) || actorInContext(before) || previousSpeaker || "對話";
 }
 
-function splitSpeechText(text, maximumLength = 260) {
-  const sentences = text.match(/[^。！？!?；;，,、]+[。！？!?；;，,、]*/g) || [text];
-  const chunks = [];
-  let current = "";
-
-  for (const sentence of sentences) {
-    const value = sentence.trim();
-    if (!value) continue;
-    if (current && current.length + value.length > maximumLength) {
-      chunks.push(current);
-      current = "";
-    }
-    if (value.length <= maximumLength) {
-      current += value;
-      continue;
-    }
-    for (let index = 0; index < value.length; index += maximumLength) {
-      if (current) chunks.push(current);
-      current = value.slice(index, index + maximumLength);
-    }
-  }
-  if (current) chunks.push(current);
-  return chunks;
+function usingNaturalProsody() {
+  return naturalProsody.checked;
 }
 
 function createStorySegments(story) {
+  const natural = usingNaturalProsody();
   const paragraphs = story.split(/\n\s*\n/).map((paragraph) => paragraph.replace(/\s*\n\s*/g, " ").trim()).filter(Boolean);
   const segments = [];
   let previousSpeaker = "";
 
-  function append(role, text) {
-    const content = text.trim();
+  function append(role, text, context = "") {
+    const content = natural ? normalizeForSpeech(text) : text.trim();
     if (!content) return;
-    for (const chunk of splitSpeechText(content)) {
-      segments.push({ role, text: chunk });
+    for (const chunk of splitSpeechText(content, natural ? 220 : 260)) {
+      const roleChanged = segments.length > 0 && segments.at(-1).role !== role;
+      segments.push({
+        role,
+        text: chunk,
+        tone: natural ? toneForSegment({ role, text: chunk, context }) : { rate: 1, pitch: 1 },
+        pause: natural ? pauseAfter(chunk, { roleChanged }) : 0
+      });
     }
   }
 
@@ -86,11 +75,13 @@ function createStorySegments(story) {
       const before = paragraph.slice(Math.max(0, cursor - 100), quote.index);
       const after = paragraph.slice(quote.index + quote[0].length, quote.index + quote[0].length + 140);
       const role = inferSpeaker(before, after, previousSpeaker);
-      append(role, quote[1]);
+      append(role, quote[1], `${before.slice(-60)} ${after}`);
       if (role !== "對話") previousSpeaker = role;
       cursor = quote.index + quote[0].length;
     }
     append("旁白", paragraph.slice(cursor));
+    const last = segments.at(-1);
+    if (natural && last) last.pause += 260;
   }
 
   return segments;
@@ -191,10 +182,17 @@ function finishVoicebox(message) {
   storyStatus.classList.remove("error");
 }
 
+function queueNextSegment(sequence, pause, play) {
+  window.clearTimeout(sequence.pauseTimer);
+  sequence.index += 1;
+  sequence.pauseTimer = window.setTimeout(() => play(sequence), pause);
+}
+
 function stopVoicebox(message = "已停止語音。") {
   if (!activeVoicebox) return;
   const sequence = activeVoicebox;
   activeVoicebox = null;
+  window.clearTimeout(sequence.pauseTimer);
   voiceboxPlayer.pause();
   voiceboxPlayer.removeAttribute("src");
   voiceboxPlayer.load();
@@ -225,11 +223,10 @@ async function playVoiceboxNext(sequence) {
     if (sequence.objectUrl) URL.revokeObjectURL(sequence.objectUrl);
     sequence.objectUrl = URL.createObjectURL(await response.blob());
     voiceboxPlayer.src = sequence.objectUrl;
-    voiceboxPlayer.playbackRate = sequence.speed;
+    voiceboxPlayer.playbackRate = Math.min(4, Math.max(0.25, sequence.speed * segment.tone.rate));
     voiceboxPlayer.onended = () => {
       if (activeVoicebox !== sequence) return;
-      sequence.index += 1;
-      playVoiceboxNext(sequence);
+      queueNextSegment(sequence, segment.pause, playVoiceboxNext);
     };
     voiceboxPlayer.onerror = () => {
       if (activeVoicebox === sequence) {
@@ -284,6 +281,7 @@ function finishStory(message) {
 
 function stopStory(message = "已停止語音。") {
   if (!activeStory) return;
+  window.clearTimeout(activeStory.pauseTimer);
   activeStory = null;
   window.speechSynthesis.cancel();
   voiceButton.textContent = "語音";
@@ -303,11 +301,11 @@ function speakNext(sequence) {
   const voice = roleVoice(segment.role, sequence.primaryVoice, sequence.assignments);
   utterance.voice = voice;
   utterance.lang = voice?.lang || "zh-TW";
-  utterance.rate = sequence.speed;
+  utterance.rate = Math.min(10, Math.max(0.1, sequence.speed * segment.tone.rate));
+  utterance.pitch = segment.tone.pitch;
   utterance.onend = () => {
     if (activeStory !== sequence) return;
-    sequence.index += 1;
-    speakNext(sequence);
+    queueNextSegment(sequence, segment.pause, speakNext);
   };
   utterance.onerror = () => {
     if (activeStory !== sequence) return;
