@@ -57,9 +57,42 @@ async function listVoiceboxProfiles(request, response) {
   }
 }
 
+function toneNumber(value, minimum, maximum) {
+  return typeof value === "number" && Number.isFinite(value) ? Math.min(maximum, Math.max(minimum, value)) : null;
+}
+
+/** Voicebox builds vary in which prosody fields they accept, so tone is sent as an optional extra. */
+function toneFields(speed, pitch) {
+  const fields = {};
+  const spokenSpeed = toneNumber(speed, 0.5, 2);
+  const spokenPitch = toneNumber(pitch, 0.5, 2);
+  if (spokenSpeed !== null) fields.speed = Number(spokenSpeed.toFixed(3));
+  if (spokenPitch !== null) fields.pitch = Number(spokenPitch.toFixed(3));
+  return fields;
+}
+
+/** Asks for tone-shaped audio first, then retries plain if this Voicebox build rejects those fields. */
+async function requestVoiceboxAudio(baseUrl, payload, tone) {
+  async function send(body) {
+    return fetch(`${baseUrl}/generate/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+  }
+
+  if (Object.keys(tone).length) {
+    const shaped = await send({ ...payload, ...tone });
+    if (shaped.ok) return { response: shaped, toneApplied: true };
+    if (shaped.status < 400 || shaped.status >= 500) return { response: shaped, toneApplied: false };
+    await shaped.body?.cancel();
+  }
+  return { response: await send(payload), toneApplied: false };
+}
+
 async function generateVoiceboxSpeech(request, response) {
   try {
-    const { voiceboxUrl, profileId, text, engine } = await readJson(request);
+    const { voiceboxUrl, profileId, text, engine, speed, pitch } = await readJson(request);
     if (
       typeof profileId !== "string" || !profileId ||
       typeof text !== "string" || !text.trim() || text.length > 5_000 ||
@@ -69,21 +102,18 @@ async function generateVoiceboxSpeech(request, response) {
       return;
     }
     const baseUrl = localVoiceboxUrl(voiceboxUrl);
-    const audio = await fetch(`${baseUrl}/generate/stream`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        profile_id: profileId,
-        text: text.trim(),
-        engine,
-        language: "zh",
-        max_chunk_chars: 800
-      })
-    });
+    const { response: audio, toneApplied } = await requestVoiceboxAudio(baseUrl, {
+      profile_id: profileId,
+      text: text.trim(),
+      engine,
+      language: "zh",
+      max_chunk_chars: 800
+    }, toneFields(speed, pitch));
     if (!audio.ok) return voiceboxError(audio, response);
     response.writeHead(200, {
       "Content-Type": audio.headers.get("content-type") || "audio/wav",
-      "Cache-Control": "no-store"
+      "Cache-Control": "no-store",
+      "X-Voicebox-Tone": toneApplied ? "applied" : "dropped"
     });
     response.end(Buffer.from(await audio.arrayBuffer()));
   } catch (error) {

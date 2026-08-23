@@ -34,6 +34,7 @@ h2 { margin: 0; font-size: 1.3rem; letter-spacing: -.025em; }
 .button:hover:not(:disabled) { transform: translateY(-1px); }
 .button:disabled { cursor: wait; opacity: .55; }
 .primary { background: #80b6ff; color: #10213e; }
+.secondary { background: #22375a; color: #cfe0ff; box-shadow: inset 0 0 0 1px #3c5c8c; }
 label { color: #aebbd1; display: grid; font-size: .8rem; font-weight: 700; gap: 7px; }
 input, select, textarea { border: 1px solid #405372; border-radius: 8px; background: #101d32; color: #eff5ff; padding: 9px 10px; outline: none; }
 input:focus, select:focus, textarea:focus { border-color: #80b6ff; box-shadow: 0 0 0 3px #80b6ff24; }

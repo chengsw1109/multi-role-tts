@@ -11,6 +11,7 @@ const browserVoiceSetting = document.querySelector("#browser-voice-setting");
 const voiceboxUrlSetting = document.querySelector("#voicebox-url-setting");
 const voiceboxUrl = document.querySelector("#voicebox-url");
 const naturalProsody = document.querySelector("#natural-prosody");
+const previewButton = document.querySelector("#story-preview");
 const canSpeak = "speechSynthesis" in window;
 let availableBrowserVoices = [];
 let activeStory = null;
@@ -140,6 +141,28 @@ function setEngineSettings() {
   voiceboxUrlSetting.hidden = !usingVoicebox;
 }
 
+function resetControls() {
+  voiceButton.textContent = "語音";
+  previewButton.textContent = "試聽這段";
+  voiceButton.disabled = false;
+  previewButton.disabled = false;
+}
+
+function showStopControls(preview) {
+  voiceButton.textContent = preview ? "語音" : "停止語音";
+  previewButton.textContent = preview ? "停止試聽" : "試聽這段";
+  voiceButton.disabled = preview;
+  previewButton.disabled = !preview;
+}
+
+/** Preview speaks the selected passage, or the opening of the story when nothing is selected. */
+function storySource(preview) {
+  const story = storyInput.value;
+  if (!preview) return story.trim();
+  const selection = story.slice(storyInput.selectionStart, storyInput.selectionEnd).trim();
+  return (selection || story).trim().slice(0, 400);
+}
+
 function showError(message) {
   storyStatus.textContent = message;
   storyStatus.classList.add("error");
@@ -177,7 +200,7 @@ async function voiceboxRequest(path, body) {
 function finishVoicebox(message) {
   if (activeVoicebox?.objectUrl) URL.revokeObjectURL(activeVoicebox.objectUrl);
   activeVoicebox = null;
-  voiceButton.textContent = "語音";
+  resetControls();
   storyStatus.textContent = message;
   storyStatus.classList.remove("error");
 }
@@ -197,7 +220,7 @@ function stopVoicebox(message = "已停止語音。") {
   voiceboxPlayer.removeAttribute("src");
   voiceboxPlayer.load();
   if (sequence.objectUrl) URL.revokeObjectURL(sequence.objectUrl);
-  voiceButton.textContent = "語音";
+  resetControls();
   storyStatus.textContent = message;
   storyStatus.classList.remove("error");
 }
@@ -211,19 +234,23 @@ async function playVoiceboxNext(sequence) {
 
   const segment = sequence.segments[sequence.index];
   const profile = voiceboxProfileForRole(sequence, segment.role);
-  storyStatus.textContent = `正在產生：${segment.role}（${sequence.index + 1} / ${sequence.segments.length}）`;
+  storyStatus.textContent = `${sequence.preview ? "試聽" : "正在產生"}：${segment.role}（${sequence.index + 1} / ${sequence.segments.length}）`;
   try {
+    const wantedSpeed = sequence.speed * segment.tone.rate;
+    const tonePossible = wantedSpeed >= 0.5 && wantedSpeed <= 2;
     const response = await voiceboxRequest("/api/voicebox/speech", {
       voiceboxUrl: voiceboxUrl.value.trim(),
       profileId: profile.id,
       engine: profile.default_engine || profile.preset_engine || "qwen",
-      text: segment.text
+      text: segment.text,
+      ...(tonePossible ? { speed: wantedSpeed, pitch: segment.tone.pitch } : {})
     });
     if (activeVoicebox !== sequence) return;
+    const toneApplied = tonePossible && response.headers.get("X-Voicebox-Tone") === "applied";
     if (sequence.objectUrl) URL.revokeObjectURL(sequence.objectUrl);
     sequence.objectUrl = URL.createObjectURL(await response.blob());
     voiceboxPlayer.src = sequence.objectUrl;
-    voiceboxPlayer.playbackRate = Math.min(4, Math.max(0.25, sequence.speed * segment.tone.rate));
+    voiceboxPlayer.playbackRate = toneApplied ? 1 : Math.min(4, Math.max(0.25, wantedSpeed));
     voiceboxPlayer.onended = () => {
       if (activeVoicebox !== sequence) return;
       queueNextSegment(sequence, segment.pause, playVoiceboxNext);
@@ -243,8 +270,8 @@ async function playVoiceboxNext(sequence) {
   }
 }
 
-async function speakVoiceboxStory() {
-  const story = storyInput.value.trim();
+async function speakVoiceboxStory(preview) {
+  const story = storySource(preview);
   if (!story) {
     showError("請先貼上故事內容。");
     return;
@@ -255,26 +282,26 @@ async function speakVoiceboxStory() {
     return;
   }
   voiceButton.disabled = true;
+  previewButton.disabled = true;
   storyStatus.textContent = "正在連線到本機 Voicebox…";
   storyStatus.classList.remove("error");
   try {
     const response = await voiceboxRequest("/api/voicebox/profiles", { voiceboxUrl: voiceboxUrl.value.trim() });
     const { profiles = [] } = await response.json();
     if (!profiles.length) throw new Error("Voicebox 找不到語音設定檔。請先建立旁白或角色聲音。" );
-    const sequence = { segments: createStorySegments(story), profiles, index: 0, assignments: new Map(), objectUrl: "", speed };
+    const sequence = { segments: createStorySegments(story), profiles, index: 0, assignments: new Map(), objectUrl: "", speed, preview };
     activeVoicebox = sequence;
-    voiceButton.textContent = "停止語音";
+    showStopControls(preview);
     await playVoiceboxNext(sequence);
   } catch (error) {
     showError(error.message || "無法連線到本機 Voicebox。");
-  } finally {
-    voiceButton.disabled = false;
+    resetControls();
   }
 }
 
 function finishStory(message) {
   activeStory = null;
-  voiceButton.textContent = "語音";
+  resetControls();
   storyStatus.textContent = message;
   storyStatus.classList.remove("error");
 }
@@ -284,7 +311,7 @@ function stopStory(message = "已停止語音。") {
   window.clearTimeout(activeStory.pauseTimer);
   activeStory = null;
   window.speechSynthesis.cancel();
-  voiceButton.textContent = "語音";
+  resetControls();
   storyStatus.textContent = message;
   storyStatus.classList.remove("error");
 }
@@ -312,18 +339,18 @@ function speakNext(sequence) {
     finishStory("語音朗讀中斷，請改選另一個瀏覽器語音後再試。");
     storyStatus.classList.add("error");
   };
-  storyStatus.textContent = `正在朗讀：${segment.role}（${sequence.index + 1} / ${sequence.segments.length}）`;
+  storyStatus.textContent = `${sequence.preview ? "試聽" : "正在朗讀"}：${segment.role}（${sequence.index + 1} / ${sequence.segments.length}）`;
   window.speechSynthesis.speak(utterance);
 }
 
-function speakStory() {
+function speakStory(preview = false) {
   if (speechEngine.value === "voicebox") {
     if (activeVoicebox) {
       stopVoicebox();
       return;
     }
     if (activeStory) stopStory();
-    speakVoiceboxStory();
+    speakVoiceboxStory(preview);
     return;
   }
   if (activeVoicebox) stopVoicebox();
@@ -336,7 +363,7 @@ function speakStory() {
     stopStory();
     return;
   }
-  const story = storyInput.value.trim();
+  const story = storySource(preview);
   if (!story) {
     storyStatus.textContent = "請先貼上故事內容。";
     storyStatus.classList.add("error");
@@ -356,13 +383,14 @@ function speakStory() {
   }
 
   const segments = createStorySegments(story);
-  activeStory = { segments, index: 0, speed, primaryVoice, assignments: new Map() };
-  voiceButton.textContent = "停止語音";
+  activeStory = { segments, index: 0, speed, primaryVoice, assignments: new Map(), preview };
+  showStopControls(preview);
   storyStatus.classList.remove("error");
   speakNext(activeStory);
 }
 
-voiceButton.addEventListener("click", speakStory);
+voiceButton.addEventListener("click", () => speakStory(false));
+previewButton.addEventListener("click", () => speakStory(true));
 speechEngine.addEventListener("change", () => {
   if (activeStory) stopStory();
   if (activeVoicebox) stopVoicebox();
