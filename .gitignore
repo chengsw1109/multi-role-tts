@@ -3,3 +3,5 @@
 !.env.example
 node_modules/
 
+booking/data/bookings.json
+booking/data/*.tmp

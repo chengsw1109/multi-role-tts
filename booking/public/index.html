@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>線上預約</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main>
+      <h1 id="title">線上預約</h1>
+      <p id="intro" class="muted"></p>
+
+      <section id="picker">
+        <h2>1. 選擇日期</h2>
+        <div class="row">
+          <input type="date" id="date" />
+          <span id="day-hint" class="muted"></span>
+        </div>
+
+        <h2>2. 選擇時段</h2>
+        <div id="slots" class="slots" aria-live="polite">請先選擇日期。</div>
+
+        <form id="form" hidden>
+          <h2>3. 填寫聯絡資料</h2>
+          <p id="chosen" class="chosen"></p>
+          <label>姓名<input id="name" maxlength="80" required /></label>
+          <label>Email<input id="email" type="email" maxlength="200" required /></label>
+          <label>電話（選填）<input id="phone" maxlength="40" /></label>
+          <label>備註（選填）<textarea id="note" maxlength="1000" rows="3"></textarea></label>
+          <button type="submit" id="submit">確認預約</button>
+        </form>
+      </section>
+
+      <section id="result" hidden></section>
+      <p id="error" class="error" hidden></p>
+    </main>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
